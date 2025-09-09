@@ -17,7 +17,7 @@ def safe_filename(s: str) -> str:
 @app.command()
 def scrape(
     query: str = typer.Option("smile", help="Search query for images"),
-    num_images: int = typer.Option(50, help="Total number of images to download"),
+    num_images: int = typer.Option(1000, help="Total number of images to download"),
     resolution: str = typer.Option("original", help="Image resolution (e.g., original, large, medium)"),
 ):
     # Folder for saving images + CSV
@@ -32,19 +32,19 @@ def scrape(
     page, downloaded = 1, 0
     photographers = {}
 
-    typer.echo(Fore.CYAN + f"🔍 Searching for '{query}' images...")
+    typer.echo(Fore.CYAN + f"Searching for '{query}' images...")
 
     while downloaded < num_images:
         params = {"query": query, "per_page": min(80, num_images - downloaded), "page": page}
         resp = requests.get(base_url, headers=headers, params=params)
         if resp.status_code != 200:
-            typer.echo(Fore.RED + f"❌ Error: Received status {resp.status_code}")
+            typer.echo(Fore.RED + f"Error: Received status {resp.status_code}")
             raise typer.Exit(code=1)
 
         data = resp.json()
         photos = data.get("photos", [])
         if not photos:
-            typer.echo(Fore.YELLOW + "⚠️ No more photos available.")
+            typer.echo(Fore.YELLOW + "No more photos available.")
             break
 
         for photo in photos:
@@ -67,7 +67,7 @@ def scrape(
                 with open(dest_path, "wb") as f:
                     f.write(img_resp.content)
                 downloaded += 1
-                typer.echo(Fore.GREEN + f"[{downloaded}/{num_images}] ✅ Downloaded: {fname}")
+                typer.echo(Fore.GREEN + f"[{downloaded}/{num_images}] Downloaded: {fname}")
 
                 # Store photographer details
                 photographers[photo["photographer"]] = photo.get("photographer_url")
@@ -77,7 +77,7 @@ def scrape(
         page += 1
         sleep(1)  # rate limit safety
 
-    typer.echo(Style.BRIGHT + Fore.MAGENTA + f"\n🎉 Done! {downloaded} images downloaded to '{download_dir}'\n")
+    typer.echo(Style.BRIGHT + Fore.MAGENTA + f"\nDone! {downloaded} images downloaded to '{download_dir}'\n")
 
     # Export photographers to CSV
     csv_path = os.path.join(download_dir, f"{query}_photographers.csv")
@@ -87,7 +87,7 @@ def scrape(
         for name, url in photographers.items():
             writer.writerow([name, url])
 
-    typer.echo(Style.BRIGHT + Fore.CYAN + f"📑 Photographer credits exported to: {csv_path}")
+    typer.echo(Style.BRIGHT + Fore.CYAN + f"Photographer credits exported to: {csv_path}")
 
 if __name__ == "__main__":
     app()
