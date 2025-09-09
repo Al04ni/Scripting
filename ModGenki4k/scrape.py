@@ -1,13 +1,14 @@
 import os
+import csv
 import requests
 import typer
 from time import sleep
 from urllib.parse import urlparse
 from colorama import init, Fore, Style
 
-app = typer.Typer(help="Pexels Smile Scraper – download high-quality smile images with credits")
+app = typer.Typer(help="Pexels Smile Scraper – download high-quality images with author credits")
 
-# Initialize Colorama for cross-platform color support
+# Initialize Colorama
 init(autoreset=True)
 
 def safe_filename(s: str) -> str:
@@ -17,32 +18,33 @@ def safe_filename(s: str) -> str:
 def scrape(
     query: str = typer.Option("smile", help="Search query for images"),
     num_images: int = typer.Option(50, help="Total number of images to download"),
-    resolution: str = typer.Option("original", help="Image resolution (e.g., original, large)"),
+    resolution: str = typer.Option("original", help="Image resolution (e.g., original, large, medium)"),
 ):
-    DOWNLOAD_DIR = os.path.expanduser(f"~/Downloads/{query.replace(' ', '_')}")
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    # Folder for saving images + CSV
+    download_dir = os.path.expanduser(f"~/Downloads/{query.replace(' ', '_')}")
+    os.makedirs(download_dir, exist_ok=True)
 
-    API_KEY = os.getenv("PEXELS_API_KEY", "LMcPx1udI3e8GcThoGJthJRPXaSYxTpxo4xMynNYSIHgbu1Ulbhp1siV")
-    headers = {"Authorization": API_KEY}
-    BASE_URL = "https://api.pexels.com/v1/search"
+    # API Setup
+    api_key = os.getenv("PEXELS_API_KEY", "LMcPx1udI3e8GcThoGJthJRPXaSYxTpxo4xMynNYSIHgbu1Ulbh")
+    headers = {"Authorization": api_key}
+    base_url = "https://api.pexels.com/v1/search"
 
-    page = 1
-    downloaded = 0
+    page, downloaded = 1, 0
     photographers = {}
 
-    typer.echo(Fore.CYAN + f"Starting scrape for '{query}'...")
+    typer.echo(Fore.CYAN + f"🔍 Searching for '{query}' images...")
 
     while downloaded < num_images:
         params = {"query": query, "per_page": min(80, num_images - downloaded), "page": page}
-        resp = requests.get(BASE_URL, headers=headers, params=params)
+        resp = requests.get(base_url, headers=headers, params=params)
         if resp.status_code != 200:
-            typer.echo(Fore.RED + f"Error: Received status {resp.status_code}")
+            typer.echo(Fore.RED + f"❌ Error: Received status {resp.status_code}")
             raise typer.Exit(code=1)
 
         data = resp.json()
         photos = data.get("photos", [])
         if not photos:
-            typer.echo(Fore.YELLOW + "No more photos available.")
+            typer.echo(Fore.YELLOW + "⚠️ No more photos available.")
             break
 
         for photo in photos:
@@ -54,7 +56,7 @@ def scrape(
                 continue
 
             fname = f"{photo['id']}_{safe_filename(photo['photographer'])}.jpg"
-            dest_path = os.path.join(DOWNLOAD_DIR, fname)
+            dest_path = os.path.join(download_dir, fname)
 
             if os.path.exists(dest_path):
                 typer.echo(Fore.YELLOW + f"[SKIPPED] {fname} already exists")
@@ -65,18 +67,27 @@ def scrape(
                 with open(dest_path, "wb") as f:
                     f.write(img_resp.content)
                 downloaded += 1
-                typer.echo(Fore.GREEN + f"[{downloaded}/{num_images}] Downloaded: {fname}")
+                typer.echo(Fore.GREEN + f"[{downloaded}/{num_images}] ✅ Downloaded: {fname}")
+
+                # Store photographer details
                 photographers[photo["photographer"]] = photo.get("photographer_url")
             else:
                 typer.echo(Fore.RED + f"[ERROR] Failed to download {fname}: status {img_resp.status_code}")
 
         page += 1
-        sleep(1)
+        sleep(1)  # rate limit safety
 
-    typer.echo(Style.BRIGHT + Fore.MAGENTA + f"\nDone! {downloaded} images downloaded to '{DOWNLOAD_DIR}'\n")
-    typer.echo(Style.BRIGHT + "Photographer Credits:")
-    for name, url in photographers.items():
-        typer.echo(f"• {name}: {url}")
+    typer.echo(Style.BRIGHT + Fore.MAGENTA + f"\n🎉 Done! {downloaded} images downloaded to '{download_dir}'\n")
+
+    # Export photographers to CSV
+    csv_path = os.path.join(download_dir, f"{query}_photographers.csv")
+    with open(csv_path, mode="w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["Photographer", "Profile URL"])
+        for name, url in photographers.items():
+            writer.writerow([name, url])
+
+    typer.echo(Style.BRIGHT + Fore.CYAN + f"📑 Photographer credits exported to: {csv_path}")
 
 if __name__ == "__main__":
     app()
