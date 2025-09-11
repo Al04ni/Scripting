@@ -16,7 +16,7 @@ def safe_filename(s: str) -> str:
 
 @app.command()
 def scrape(
-    query: str = typer.Option("smile", help="Search query for images"),
+    query: str = typer.Option("smile face", help="Search query for images"),
     num_images: int = typer.Option(2000, help="Total number of images to download"),
     resolution: str = typer.Option("original", help="Image resolution (e.g., original, large)"),
 ):
@@ -78,13 +78,16 @@ def scrape(
     typer.echo(Style.BRIGHT + Fore.MAGENTA + f"\nDone! {downloaded} images downloaded to '{DOWNLOAD_DIR}'\n")
     typer.echo(Style.BRIGHT + "Photographer Credits:")
     
-    for name, url in photographers.items():
-        csv_path = os.path.join(DOWNLOAD_DIR, f"{query}_photographers.csv")
-        typer.echo(f"• {name}: {url}")
+    #Converting the dict into the CSV
+    csv_path = os.path.join(DOWNLOAD_DIR, f"{query}_photographers.csv")
+    with open(csv_path, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, )
+        writer.writerow(["Photographer", "Profile URL"])
         
-        with open(csv_path, mode="w", newline="", encoding="utf-8") as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(["Photographer", "Profile URL"])
+        #Add then do the looping of photographer's dictionary
+        for name, url in photographers.items():
+            typer.echo(f". {name}: {url}")
+            writer.writerow([name, url])
             
         typer.echo(Style.BRIGHT + Fore.CYAN + f"Photographer credits exported to: {csv_path}")
 
