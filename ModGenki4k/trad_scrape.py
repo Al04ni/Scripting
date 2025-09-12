@@ -56,7 +56,7 @@ def safe_filename(s: str) -> str:
 @app.command()
 def scrape(
     query: str = typer.Option("face", help="Search query for images"),
-    num_images: int = typer.Option(2000, help="Total number of images to download"),
+    num_images: int = typer.Option(1000, help="Total number of images to download"),
     resolution: str = typer.Option("original", help="Image resolution (e.g., original, large)"),
 ):
     DOWNLOAD_DIR = os.path.expanduser(f"~/Downloads/{query.replace(' ', '_')}")
